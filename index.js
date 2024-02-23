@@ -18,7 +18,7 @@ const twitterClient = new TwitterApi({
 
 const gemini = new GoogleGenerativeAI(process.env.GEMENI_API_KEY);
 
-const callbackUrl = `http://127.0.0.1:${port}/auth/twitter/callback`;
+const callbackUrl = `https://www.socialbots.yoginderkumar.in/auth/twitter/callback`;
 
 const collectionStateRef = dbRef.collection("TwitterBotSessions").doc("state");
 const collectionTokensRef = dbRef
