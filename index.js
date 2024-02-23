@@ -1,6 +1,5 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { dbRef } = require("./lib/firebase");
-const OpenAi = require("openai");
 
 const app = require("express")();
 require("dotenv").config();
@@ -9,7 +8,7 @@ const TwitterApi = require("twitter-api-v2").default;
 const port = 8080;
 
 app.listen(port, () => {
-  console.log("Server is live");
+  console.log("Server is live", port);
 });
 
 const twitterClient = new TwitterApi({
@@ -25,6 +24,10 @@ const collectionStateRef = dbRef.collection("TwitterBotSessions").doc("state");
 const collectionTokensRef = dbRef
   .collection("TwitterBotSessions")
   .doc("tokens");
+
+app.get("/", (req, res) => {
+  res.status(200).send("Server is up and running");
+});
 
 app.get("/auth/twitter/signin", async (req, res) => {
   const { url, codeVerifier, state } = twitterClient.generateOAuth2AuthLink(
