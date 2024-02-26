@@ -1,4 +1,5 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const OpenAi = require("openai");
 const { dbRef } = require("./lib/firebase");
 
 const app = require("express")();
@@ -14,6 +15,10 @@ app.listen(port, () => {
 const twitterClient = new TwitterApi({
   clientId: process.env.TWITTER_CLIENT_ID,
   clientSecret: process.env.TWITTER_CLIENT_SECRET,
+});
+
+const openai = new OpenAi({
+  apiKey: process.env["OPENAI_API_KEY"],
 });
 
 const gemini = new GoogleGenerativeAI(process.env.GEMENI_API_KEY);
@@ -59,7 +64,7 @@ app.get("/auth/twitter/callback", async (req, res) => {
   res.status(200).send("Working callback ${accessToken}");
 });
 
-const prompts = [
+const topics = [
   "ReactJs",
   "ReactNative",
   "Javascript",
@@ -68,9 +73,6 @@ const prompts = [
   "Software Engineer",
   "CSS",
   "HTML",
-  "Bill Gates",
-  "Steve Jobs",
-  "Kunal Shah",
   "Indian Startups",
   "Tech Jobs",
   "Tech in 2024",
@@ -83,10 +85,15 @@ const prompts = [
   "Venture Capitalism",
   "Artificial Intelligence",
   "MacOS",
-  "Cryptography",
-  "Bitcoin",
-  "iOS",
-  "Android",
+  "Tech Layoffs",
+];
+
+const types_of_humours = [
+  "Satirical",
+  "Insulting",
+  "Self-Deprecating",
+  "Dark",
+  "Wordplay",
 ];
 
 const wildcards = [
@@ -94,16 +101,9 @@ const wildcards = [
   "use multiple hashtags",
   "use a bunch of emojis",
   "try to inspire the audience",
-  "push a cryptocurrency or memecoin",
-  "incorporate a trending topic",
-  "brag about your achievements in tech",
-  "argue about Indian politics",
-  "talk about how much you ate for dinner",
-  "complain about how it does not scale well",
-  "brag about how much you can bench press",
 ];
 
-const max_characters = 64;
+const max_characters = 72;
 
 app.get("/post/tweet", async (req, res) => {
   const querySnapshot = collectionTokensRef.get();
@@ -117,13 +117,25 @@ app.get("/post/tweet", async (req, res) => {
   const geminiModel = gemini.getGenerativeModel({
     model: "gemini-pro",
   });
-  const prompt = `write something unique, witty and funny from any of these topics "${prompts.join(
-    ","
-  )}" for #techtwitter, make it more humanized, under ${max_characters} characters, including any one of these whenever seem required "${wildcards.join(
-    ","
-  )}"`;
-  const nextTweet = await geminiModel.generateContent(prompt);
-  const tweetInText = nextTweet.response.text();
-  const { data } = await refreshedClient.v2.tweet(tweetInText);
-  res.status(200).send({ data: data, tweetInText });
+
+  const topic = Math.floor(Math.random() * topics.length);
+  const humourStyle = Math.floor(Math.random() * types_of_humours.length);
+
+  const prompt = `write me a sarcastic and funny tweet on "${
+    topics[topic]
+  }", picking up on "${
+    types_of_humours[humourStyle]
+  }" Humour style, ${wildcards.join(",")}, under ${max_characters} characters`;
+  const { choices } = await openai.chat.completions.create({
+    messages: [{ role: "user", content: prompt }],
+    model: "gpt-3.5-turbo",
+  });
+  console.log("chatCompletion: ", choices[0]?.message?.content);
+  const tweetFromGemini = await geminiModel.generateContent(prompt);
+  const tweetFromGpt = choices[0]?.message?.content || "";
+  const tweet = tweetFromGpt?.length
+    ? tweetFromGpt
+    : tweetFromGemini.replace(/"/g, "");
+  await refreshedClient.v2.tweet(tweet);
+  res.status(200).send({ data: prompt, tweetInText: tweet });
 });
